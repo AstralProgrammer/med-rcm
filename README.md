@@ -15,23 +15,47 @@ npm run dev
 
 Open the URL Vite prints (usually `http://localhost:5173`). Use **Benefits → Verify Maya Chen** for a direct Delta Dental-style 271 path, **Leo Park** for API misses then portal/RPA fallback, **Noah Wright** for incomplete intake, **Ava Singh** for a terminated plan.
 
-## Free hosting
+## CI/CD
 
-The app is a static Vite build (`dist/`). Pick one:
+`.github/workflows/ci-cd.yml` runs on pull requests, pushes to `main`, and `workflow_dispatch`.
 
-### GitHub Pages (included workflow)
+| Job | When | What |
+|---|---|---|
+| **Lint and build** | Every run | `npm ci`, `oxlint`, `npm run build` |
+| **Deploy Vercel** | After CI | Preview on PRs, production on `main` (skipped if secrets are missing) |
+| **Deploy GitHub Pages** | After CI on `main` | Static site at `https://<user>.github.io/dental-rcm/` |
 
-1. Create a GitHub repo named **`dental-rcm`** (the workflow sets `base` to `/dental-rcm/`). If the repo name differs, change `base` in `vite.config.ts` to match.
-2. Push `main`.
-3. Repo **Settings → Pages → Source: GitHub Actions**.
-4. The workflow `.github/workflows/pages.yml` builds and publishes. Site: `https://<user>.github.io/dental-rcm/`.
+Local equivalent: `npm run ci`
 
-### Cloudflare Pages / Netlify / Vercel (free tiers)
+### Vercel secrets
+
+Create a token at [vercel.com/account/tokens](https://vercel.com/account/tokens). Link once, then copy IDs from `.vercel/project.json`:
+
+```bash
+npx vercel login
+npx vercel link
+```
+
+Add GitHub Actions secrets:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID` (`orgId`)
+- `VERCEL_PROJECT_ID` (`projectId`)
+
+Do **not** set `GITHUB_PAGES` in Vercel. `vercel.json` already sets Vite, `npm ci`, `dist`, and SPA rewrite. You can still import the repo at [vercel.com/new](https://vercel.com/new) or run `npx vercel` / `npx vercel --prod` locally; GitHub Actions deploys the same project when the secrets above are set.
+
+### GitHub Pages
+
+1. Repo named **`dental-rcm`** (or change `base` in `vite.config.ts`).
+2. **Settings → Pages → Source: GitHub Actions**.
+3. Push `main`. The Pages job needs `GITHUB_PAGES=true` so asset URLs use `/dental-rcm/`.
+
+### Cloudflare Pages / Netlify
 
 - **Build command:** `npm run build`
 - **Output:** `dist`
-- Do **not** set `GITHUB_PAGES` (keeps `base: /`).
-- `netlify.toml` and `vercel.json` already rewrite the SPA to `index.html`.
+- Do **not** set `GITHUB_PAGES`.
+- `netlify.toml` rewrites the SPA to `index.html`.
 
 ## Production (not this demo)
 

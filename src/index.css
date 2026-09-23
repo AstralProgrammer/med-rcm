@@ -239,6 +239,17 @@ tr.focus { background: color-mix(in srgb, var(--accent), white 91%); }
 .ex, .recon, .bill { padding: .9rem 1rem; margin-bottom: .8rem; }.ex.done { opacity: .55; }.ex header { display: flex; justify-content: space-between; }
 .ex h3, .recon h3 { margin: .4rem 0; }.recon { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
 .arch { padding: 1rem 1.2rem 1rem 2rem; line-height: 1.5; }
+.arch.nested { margin: 0; }
+
+.docs-layout { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; align-items: start; }
+.docs-toc { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.docs-toc a { font-size: .78rem; color: var(--muted); text-decoration: none; padding: 6px 8px; border-radius: 8px; }
+.docs-toc a:hover { background: #fff; color: var(--ink); }
+.docs-body .band { scroll-margin-top: 12px; }
+.swagger-card { overflow: hidden; }
+.swagger-host { min-height: 240px; }
+.swagger-host .swagger-ui .topbar, .swagger-host .swagger-ui .information-container { display: none; }
+
 .eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .63rem; color: var(--muted); margin: 0; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(19, 34, 45, .36); backdrop-filter: blur(6px); }
@@ -266,6 +277,8 @@ tr.focus { background: color-mix(in srgb, var(--accent), white 91%); }
   .sidebar nav { flex-direction: row; overflow-x: auto; }.sidebar nav button { flex: 0 0 auto; }.sidebar nav button span:last-child { display: none; }
   main { padding: 14px; }
   .dashboard-grid { grid-template-columns: 1fr; }
+  .docs-layout { grid-template-columns: 1fr; }
+  .docs-toc { position: static; flex-direction: row; flex-wrap: wrap; }
 }
 
 @media (max-width: 520px) {

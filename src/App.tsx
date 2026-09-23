@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import type { Field, Patient, ProcedureBenefit, View } from './domain/types'
 import { StoreProvider, useStore, verifyPatient } from './domain/store'
 import { BRAND_STORAGE_KEY, loadBrand, type BrandConfig } from './brand'
+import { Docs } from './Docs'
 
 const NAV: { id: View; label: string; icon: string }[] = [
   { id: 'command', label: 'Dashboard', icon: '▦' },
@@ -13,6 +14,7 @@ const NAV: { id: View; label: string; icon: string }[] = [
   { id: 'payments', label: 'Payments & ERA', icon: '◇' },
   { id: 'billing', label: 'Patient billing', icon: '$' },
   { id: 'architecture', label: 'System overview', icon: '⌘' },
+  { id: 'docs', label: 'Docs', icon: '☰' },
 ]
 
 function money(n: number) {
@@ -129,6 +131,7 @@ function AppShell() {
           {state.view === 'payments' && <Payments />}
           {state.view === 'billing' && <Billing />}
           {state.view === 'architecture' && <Architecture />}
+          {state.view === 'docs' && <Docs />}
         </main>
       </div>
       {showBrand ? <BrandPanel brand={brand} onSave={saveBrand} onClose={() => setShowBrand(false)} /> : null}

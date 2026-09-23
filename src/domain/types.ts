@@ -216,3 +216,4 @@ export type View =
   | 'payments'
   | 'billing'
   | 'architecture'
+  | 'docs'

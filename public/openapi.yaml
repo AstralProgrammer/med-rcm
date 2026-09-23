@@ -1,0 +1,636 @@
+openapi: 3.0.3
+info:
+  title: Dental RCM API
+  version: 0.1.0
+  description: |
+    Contract for the pediatric dental revenue-cycle platform.
+
+    This static demo implements the same resources in the browser. Production
+    hosts these routes behind auth, encryption, and a BAA-covered data plane.
+    Coverage is never inferred by an LLM; every field carries provenance.
+  contact:
+    name: API
+servers:
+  - url: /api/v1
+    description: Contract base path
+tags:
+  - name: Patients
+    description: Insurance intake and coverage records
+  - name: Verifications
+    description: Layered procedure-level benefit retrieval
+  - name: Claims
+    description: Draft, scrub, submit
+  - name: Exceptions
+    description: Auto-resolvable vs human review queue
+  - name: Payments
+    description: ERA matching and posting
+  - name: Billing
+    description: Patient responsibility with human approval
+  - name: Audit
+    description: Immutable event log
+paths:
+  /patients:
+    get:
+      tags: [Patients]
+      summary: List patients in the verification cohort
+      operationId: listPatients
+      parameters:
+        - in: query
+          name: collectionStatus
+          schema:
+            type: string
+            enum: [complete, incomplete, requested]
+      responses:
+        '200':
+          description: Patient list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Patient'
+  /patients/{patientId}:
+    get:
+      tags: [Patients]
+      summary: Get a patient and insurance plans
+      operationId: getPatient
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: Patient
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /patients/{patientId}/outreach:
+    post:
+      tags: [Patients]
+      summary: Request missing insurance from the subscriber
+      operationId: requestMissingInsurance
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '202':
+          description: Outreach queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+  /verifications:
+    post:
+      tags: [Verifications]
+      summary: Run layered benefit verification
+      description: |
+        Walks direct payer → clearinghouse → Vyne → eligibility API → portal → RPA → PDF → phone → human.
+        Stops per field when confidence is sufficient. Does not guess coverage.
+      operationId: runVerification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patientId]
+              properties:
+                patientId:
+                  type: string
+                  example: pt-maya
+      responses:
+        '200':
+          description: Verification record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationRecord'
+        '409':
+          description: Intake incomplete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationRecord'
+  /verifications/{verificationId}:
+    get:
+      tags: [Verifications]
+      summary: Get a verification including D1351 determination
+      operationId: getVerification
+      parameters:
+        - in: path
+          name: verificationId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /claims:
+    get:
+      tags: [Claims]
+      summary: List claims
+      operationId: listClaims
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/ClaimStatus'
+      responses:
+        '200':
+          description: Claims
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Claim'
+  /claims/{claimId}/draft:
+    post:
+      tags: [Claims]
+      summary: Create or pass scrub for a draft claim
+      operationId: draftClaim
+      parameters:
+        - $ref: '#/components/parameters/ClaimId'
+      responses:
+        '200':
+          description: Draft ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+  /claims/{claimId}/submit:
+    post:
+      tags: [Claims]
+      summary: Submit 837D and record clearinghouse ACK
+      operationId: submitClaim
+      parameters:
+        - $ref: '#/components/parameters/ClaimId'
+      responses:
+        '200':
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+  /exceptions:
+    get:
+      tags: [Exceptions]
+      summary: List exception queue items
+      operationId: listExceptions
+      parameters:
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [auto, human]
+        - in: query
+          name: resolved
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Exceptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExceptionItem'
+  /exceptions/{exceptionId}/resolve:
+    post:
+      tags: [Exceptions]
+      summary: Mark an exception resolved
+      operationId: resolveException
+      parameters:
+        - in: path
+          name: exceptionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExceptionItem'
+  /payments:
+    get:
+      tags: [Payments]
+      summary: List ERA matches
+      operationId: listPayments
+      responses:
+        '200':
+          description: Payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+  /payments/{paymentId}/post:
+    post:
+      tags: [Payments]
+      summary: Post insurance payment and contractual adjustments
+      operationId: postPayment
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+  /bills:
+    get:
+      tags: [Billing]
+      summary: List patient bills awaiting or past approval
+      operationId: listBills
+      responses:
+        '200':
+          description: Bills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientBill'
+  /bills/{billId}/decision:
+    post:
+      tags: [Billing]
+      summary: Human approve or reject a patient bill
+      operationId: decideBill
+      parameters:
+        - in: path
+          name: billId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [approved, rejected]
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientBill'
+  /audit:
+    get:
+      tags: [Audit]
+      summary: List recent audit events
+      operationId: listAudit
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Audit trail
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEvent'
+components:
+  parameters:
+    PatientId:
+      in: path
+      name: patientId
+      required: true
+      schema:
+        type: string
+        example: pt-maya
+    ClaimId:
+      in: path
+      name: claimId
+      required: true
+      schema:
+        type: string
+        example: cl-1001
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+  schemas:
+    Provenance:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+            - direct_payer
+            - clearinghouse
+            - vyne
+            - eligibility_api
+            - payer_website
+            - browser_rpa
+            - benefit_pdf
+            - phone_agent
+            - human
+        retrievedAt:
+          type: string
+          format: date-time
+        rawValue:
+          type: string
+        normalizedValue:
+          type: string
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        method:
+          type: string
+    Field:
+      type: object
+      properties:
+        value: {}
+        provenance:
+          allOf:
+            - $ref: '#/components/schemas/Provenance'
+          nullable: true
+    InsurancePlan:
+      type: object
+      properties:
+        payerId:
+          type: string
+          enum: [delta_dental, premera, regence]
+        payerName:
+          type: string
+        rank:
+          type: string
+          enum: [primary, secondary]
+        memberId:
+          $ref: '#/components/schemas/Field'
+        groupNumber:
+          $ref: '#/components/schemas/Field'
+        active:
+          $ref: '#/components/schemas/Field'
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+        synthetic:
+          type: boolean
+          example: true
+        firstName:
+          type: string
+        lastName:
+          type: string
+        dob:
+          type: string
+          format: date
+        age:
+          type: integer
+        appointmentAt:
+          type: string
+          format: date-time
+        collectionStatus:
+          type: string
+          enum: [complete, incomplete, requested]
+        missingFields:
+          type: array
+          items:
+            type: string
+        insurance:
+          type: array
+          items:
+            $ref: '#/components/schemas/InsurancePlan'
+    SealantDetermination:
+      type: object
+      description: Structured D1351 answers with provenance on each field
+      properties:
+        eligible:
+          $ref: '#/components/schemas/Field'
+        percent:
+          $ref: '#/components/schemas/Field'
+        ageRestriction:
+          $ref: '#/components/schemas/Field'
+        eligibleTeeth:
+          $ref: '#/components/schemas/Field'
+        frequency:
+          $ref: '#/components/schemas/Field'
+        replacementCovered:
+          $ref: '#/components/schemas/Field'
+        previousHistory:
+          $ref: '#/components/schemas/Field'
+        currentlyEligibleTeeth:
+          $ref: '#/components/schemas/Field'
+    ProcedureBenefit:
+      type: object
+      properties:
+        cdt:
+          type: string
+          example: D1351
+        description:
+          type: string
+        covered:
+          $ref: '#/components/schemas/Field'
+        percent:
+          $ref: '#/components/schemas/Field'
+        ageMin:
+          $ref: '#/components/schemas/Field'
+        ageMax:
+          $ref: '#/components/schemas/Field'
+        frequencyMonths:
+          $ref: '#/components/schemas/Field'
+        toothLimitation:
+          $ref: '#/components/schemas/Field'
+    VerificationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        patientId:
+          type: string
+        payerId:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, complete, needs_human]
+        overallConfidence:
+          type: number
+        recommendedNextStep:
+          type: string
+        missing:
+          type: array
+          items:
+            type: string
+        attempts:
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: string
+              ok:
+                type: boolean
+              note:
+                type: string
+              at:
+                type: string
+                format: date-time
+        sealants:
+          $ref: '#/components/schemas/SealantDetermination'
+        procedures:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcedureBenefit'
+    ClaimStatus:
+      type: string
+      enum:
+        - unbilled
+        - draft
+        - scrub_fail
+        - ready
+        - submitted
+        - acked
+        - rejected
+        - paid
+        - denied
+        - partial
+    Claim:
+      type: object
+      properties:
+        id:
+          type: string
+        patientId:
+          type: string
+        payerId:
+          type: string
+        amount:
+          type: number
+        status:
+          $ref: '#/components/schemas/ClaimStatus'
+        ageDays:
+          type: integer
+        timelyFilingDaysLeft:
+          type: integer
+        issues:
+          type: array
+          items:
+            type: string
+        procedures:
+          type: array
+          items:
+            type: object
+            properties:
+              cdt:
+                type: string
+              tooth:
+                type: string
+              fee:
+                type: number
+    ExceptionItem:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [auto, human]
+        patientId:
+          type: string
+        claimId:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        problem:
+          type: string
+        recommendedAction:
+          type: string
+        evidence:
+          type: string
+        confidence:
+          type: number
+        deadline:
+          type: string
+          format: date
+        resolved:
+          type: boolean
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+        claimId:
+          type: string
+        eraAmount:
+          type: number
+        contractualAdj:
+          type: number
+        patientResp:
+          type: number
+        cashAmount:
+          type: number
+          nullable: true
+        posted:
+          type: boolean
+    PatientBill:
+      type: object
+      properties:
+        id:
+          type: string
+        patientId:
+          type: string
+        claimId:
+          type: string
+        amount:
+          type: number
+        confidence:
+          type: number
+        status:
+          type: string
+          enum: [pending_approval, approved, rejected]
+        summary:
+          type: string
+    AuditEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+          enum: [system, staff]
+        entity:
+          type: string
+        action:
+          type: string
+        detail:
+          type: string
